@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% load ticket_extras %}
 
-{% block title %}Ticket #{{ ticket.id }} - TicketDesk{% endblock %}
+{% block title %}{{ ticket.title }} - TicketDesk{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Ticket #{{ ticket.id }}</h1>
+    <h1>Ticket Details</h1>
     <a href="{% url 'ticket_list' %}" class="btn btn-outline-secondary">Back to List</a>
 </div>
 

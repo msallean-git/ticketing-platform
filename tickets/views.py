@@ -112,7 +112,7 @@ def ticket_create(request):
             ticket = form.save(commit=False)
             ticket.created_by = request.user
             ticket.save()
-            messages.success(request, f'Ticket #{ticket.id} created successfully!')
+            messages.success(request, f'Ticket "{ticket.title}" created successfully!')
             return redirect('ticket_detail', pk=ticket.id)
     else:
         form = TicketCreateForm()
@@ -171,5 +171,5 @@ def ticket_assign_self(request, pk):
     if ticket.status == 'open':
         ticket.status = 'in_progress'
     ticket.save()
-    messages.success(request, f'Ticket #{ticket.id} assigned to you!')
+    messages.success(request, f'Ticket "{ticket.title}" assigned to you!')
     return redirect('ticket_detail', pk=pk)
