@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load ticket_extras %}
+
+{% block title %}Ticket #{{ ticket.id }} - TicketDesk{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Ticket #{{ ticket.id }}</h1>
+    <a href="{% url 'ticket_list' %}" class="btn btn-outline-secondary">Back to List</a>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h3>{{ ticket.title }}</h3>
+                <div class="mb-3">
+                    <span class="badge {{ ticket.status|status_badge }} me-2">{{ ticket.get_status_display }}</span>
+                    <span class="badge {{ ticket.priority|priority_badge }}">{{ ticket.get_priority_display }}</span>
+                </div>
+                <p class="text-muted">
+                    Created by <strong>{{ ticket.created_by.username }}</strong> on {{ ticket.created_at|date:"M d, Y g:i A" }}
+                </p>
+                <hr>
+                <div class="ticket-description">
+                    {{ ticket.description|linebreaks }}
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Comments ({{ comments.count }})</h5>
+            </div>
+            <div class="card-body">
+                {% if comments %}
+                    {% for comment in comments %}
+                        <div class="comment mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <strong>{{ comment.author.username }}</strong>
+                                <small class="text-muted">{{ comment.created_at|date:"M d, Y g:i A" }}</small>
+                            </div>
+                            <p class="mb-0">{{ comment.body|linebreaks }}</p>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No comments yet.</p>
+                {% endif %}
+
+                <hr>
+                <h6>Add Comment</h6>
+                <form method="post">
+                    {% csrf_token %}
+                    {{ comment_form.body }}
+                    {% if comment_form.body.errors %}
+                        <div class="text-danger small">{{ comment_form.body.errors }}</div>
+                    {% endif %}
+                    <button type="submit" name="add_comment" class="btn btn-primary mt-2">Add Comment</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Ticket Details</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">Status:</dt>
+                    <dd class="col-sm-7">
+                        <span class="badge {{ ticket.status|status_badge }}">{{ ticket.get_status_display }}</span>
+                    </dd>
+
+                    <dt class="col-sm-5">Priority:</dt>
+                    <dd class="col-sm-7">
+                        <span class="badge {{ ticket.priority|priority_badge }}">{{ ticket.get_priority_display }}</span>
+                    </dd>
+
+                    <dt class="col-sm-5">Created By:</dt>
+                    <dd class="col-sm-7">{{ ticket.created_by.username }}</dd>
+
+                    <dt class="col-sm-5">Assigned To:</dt>
+                    <dd class="col-sm-7">{{ ticket.assigned_to.username|default:"Unassigned" }}</dd>
+
+                    <dt class="col-sm-5">Created:</dt>
+                    <dd class="col-sm-7">{{ ticket.created_at|date:"M d, Y g:i A" }}</dd>
+
+                    <dt class="col-sm-5">Updated:</dt>
+                    <dd class="col-sm-7">{{ ticket.updated_at|date:"M d, Y g:i A" }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        {% if is_employee %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Employee Actions</h5>
+                </div>
+                <div class="card-body">
+                    {% if not ticket.assigned_to %}
+                        <a href="{% url 'ticket_assign_self' ticket.id %}" class="btn btn-success w-100 mb-3">Assign to Me</a>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="{{ update_form.status.id_for_label }}" class="form-label">Status</label>
+                            {{ update_form.status }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ update_form.priority.id_for_label }}" class="form-label">Priority</label>
+                            {{ update_form.priority }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ update_form.assigned_to.id_for_label }}" class="form-label">Assign To</label>
+                            {{ update_form.assigned_to }}
+                        </div>
+
+                        <button type="submit" name="update_ticket" class="btn btn-primary w-100">Update Ticket</button>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

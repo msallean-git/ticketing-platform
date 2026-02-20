@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome - TicketDesk{% endblock %}
+
+{% block content %}
+<div class="text-center my-5">
+    <h1 class="display-4">Welcome to TicketDesk</h1>
+    <p class="lead">Your simple and efficient ticketing platform</p>
+</div>
+
+<div class="row g-4 my-5">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Submit Tickets</h5>
+                <p class="card-text">Create and track tickets for any issues or requests you have.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Real-time Updates</h5>
+                <p class="card-text">Stay informed with status updates and comments on your tickets.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Employee Support</h5>
+                <p class="card-text">Our dedicated team is here to resolve your issues quickly.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="text-center my-5">
+    <a href="{% url 'register' %}" class="btn btn-primary btn-lg me-2">Get Started</a>
+    <a href="{% url 'login' %}" class="btn btn-outline-secondary btn-lg">Login</a>
+</div>
+{% endblock %}

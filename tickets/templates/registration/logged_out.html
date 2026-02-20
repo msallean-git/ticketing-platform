@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}Logged Out - TicketDesk{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow text-center">
+            <div class="card-body p-5">
+                <h2 class="card-title mb-4">You've been logged out</h2>
+                <p class="text-muted mb-4">Thank you for using TicketDesk. You have been successfully logged out.</p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'login' %}" class="btn btn-primary">Login Again</a>
+                    <a href="{% url 'home' %}" class="btn btn-outline-secondary">Go to Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

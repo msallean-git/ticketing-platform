@@ -1,0 +1,175 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import login
+from django.contrib import messages
+from django.db.models import Q, Count
+from .models import Ticket, Comment
+from .forms import RegistrationForm, TicketCreateForm, TicketUpdateForm, CommentForm
+from .decorators import employee_required
+
+
+def home(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    return render(request, 'home.html')
+
+
+def register(request):
+    if request.method == 'POST':
+        form = RegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, f'Welcome {user.username}! Your account has been created.')
+            return redirect('dashboard')
+    else:
+        form = RegistrationForm()
+    return render(request, 'registration/register.html', {'form': form})
+
+
+@login_required
+def dashboard(request):
+    user = request.user
+    is_employee = user.profile.is_employee
+
+    if is_employee:
+        # Employee dashboard: all tickets + unassigned
+        tickets = Ticket.objects.all()[:10]
+        unassigned_tickets = Ticket.objects.filter(assigned_to__isnull=True)[:5]
+        my_assigned = Ticket.objects.filter(assigned_to=user)[:5]
+
+        stats = {
+            'total': Ticket.objects.count(),
+            'open': Ticket.objects.filter(status='open').count(),
+            'in_progress': Ticket.objects.filter(status='in_progress').count(),
+            'resolved': Ticket.objects.filter(status='resolved').count(),
+        }
+
+        context = {
+            'is_employee': True,
+            'tickets': tickets,
+            'unassigned_tickets': unassigned_tickets,
+            'my_assigned': my_assigned,
+            'stats': stats,
+        }
+    else:
+        # Regular user dashboard: own tickets
+        tickets = Ticket.objects.filter(created_by=user)
+
+        stats = {
+            'total': tickets.count(),
+            'open': tickets.filter(status='open').count(),
+            'in_progress': tickets.filter(status='in_progress').count(),
+            'resolved': tickets.filter(status='resolved').count(),
+        }
+
+        context = {
+            'is_employee': False,
+            'tickets': tickets,
+            'stats': stats,
+        }
+
+    return render(request, 'tickets/dashboard.html', context)
+
+
+@login_required
+def ticket_list(request):
+    user = request.user
+    is_employee = user.profile.is_employee
+
+    # Base queryset
+    if is_employee:
+        tickets = Ticket.objects.all()
+    else:
+        tickets = Ticket.objects.filter(created_by=user)
+
+    # Filtering
+    status_filter = request.GET.get('status')
+    priority_filter = request.GET.get('priority')
+
+    if status_filter:
+        tickets = tickets.filter(status=status_filter)
+    if priority_filter:
+        tickets = tickets.filter(priority=priority_filter)
+
+    context = {
+        'tickets': tickets,
+        'is_employee': is_employee,
+        'status_filter': status_filter,
+        'priority_filter': priority_filter,
+        'status_choices': Ticket.STATUS_CHOICES,
+        'priority_choices': Ticket.PRIORITY_CHOICES,
+    }
+
+    return render(request, 'tickets/ticket_list.html', context)
+
+
+@login_required
+def ticket_create(request):
+    if request.method == 'POST':
+        form = TicketCreateForm(request.POST)
+        if form.is_valid():
+            ticket = form.save(commit=False)
+            ticket.created_by = request.user
+            ticket.save()
+            messages.success(request, f'Ticket #{ticket.id} created successfully!')
+            return redirect('ticket_detail', pk=ticket.id)
+    else:
+        form = TicketCreateForm()
+
+    return render(request, 'tickets/ticket_create.html', {'form': form})
+
+
+@login_required
+def ticket_detail(request, pk):
+    ticket = get_object_or_404(Ticket, pk=pk)
+    user = request.user
+    is_employee = user.profile.is_employee
+
+    # Access control: users can only view their own tickets
+    if not is_employee and ticket.created_by != user:
+        messages.error(request, 'You can only view your own tickets.')
+        return redirect('dashboard')
+
+    # Handle forms
+    if request.method == 'POST':
+        if 'update_ticket' in request.POST and is_employee:
+            update_form = TicketUpdateForm(request.POST, instance=ticket)
+            if update_form.is_valid():
+                update_form.save()
+                messages.success(request, 'Ticket updated successfully!')
+                return redirect('ticket_detail', pk=pk)
+        elif 'add_comment' in request.POST:
+            comment_form = CommentForm(request.POST)
+            if comment_form.is_valid():
+                comment = comment_form.save(commit=False)
+                comment.ticket = ticket
+                comment.author = user
+                comment.save()
+                messages.success(request, 'Comment added successfully!')
+                return redirect('ticket_detail', pk=pk)
+
+    # Initialize forms for GET request
+    update_form = TicketUpdateForm(instance=ticket) if is_employee else None
+    comment_form = CommentForm()
+
+    context = {
+        'ticket': ticket,
+        'is_employee': is_employee,
+        'update_form': update_form,
+        'comment_form': comment_form,
+        'comments': ticket.comments.all(),
+    }
+
+    return render(request, 'tickets/ticket_detail.html', context)
+
+
+@employee_required
+def ticket_assign_self(request, pk):
+    ticket = get_object_or_404(Ticket, pk=pk)
+    ticket.assigned_to = request.user
+    if ticket.status == 'open':
+        ticket.status = 'in_progress'
+    ticket.save()
+    messages.success(request, f'Ticket #{ticket.id} assigned to you!')
+    return redirect('ticket_detail', pk=pk)

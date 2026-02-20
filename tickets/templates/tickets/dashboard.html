@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% load ticket_extras %}
+
+{% block title %}Dashboard - TicketDesk{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+<p class="text-muted">Welcome back, {{ user.username }}!</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">Total Tickets</h5>
+                <h2 class="mb-0">{{ stats.total }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">Open</h5>
+                <h2 class="mb-0">{{ stats.open }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">In Progress</h5>
+                <h2 class="mb-0">{{ stats.in_progress }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">Resolved</h5>
+                <h2 class="mb-0">{{ stats.resolved }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if is_employee %}
+    <h3>Unassigned Tickets</h3>
+    {% if unassigned_tickets %}
+        <div class="table-responsive mb-4">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Priority</th>
+                        <th>Created By</th>
+                        <th>Created</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in unassigned_tickets %}
+                        <tr>
+                            <td><a href="{% url 'ticket_detail' ticket.id %}">#{{ ticket.id }}</a></td>
+                            <td>{{ ticket.title }}</td>
+                            <td><span class="badge {{ ticket.priority|priority_badge }}">{{ ticket.get_priority_display }}</span></td>
+                            <td>{{ ticket.created_by.username }}</td>
+                            <td>{{ ticket.created_at|date:"M d, Y" }}</td>
+                            <td>
+                                <a href="{% url 'ticket_assign_self' ticket.id %}" class="btn btn-sm btn-primary">Assign to Me</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-muted">No unassigned tickets.</p>
+    {% endif %}
+
+    <h3>My Assigned Tickets</h3>
+    {% if my_assigned %}
+        <div class="table-responsive mb-4">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Created By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in my_assigned %}
+                        <tr>
+                            <td><a href="{% url 'ticket_detail' ticket.id %}">#{{ ticket.id }}</a></td>
+                            <td>{{ ticket.title }}</td>
+                            <td><span class="badge {{ ticket.status|status_badge }}">{{ ticket.get_status_display }}</span></td>
+                            <td><span class="badge {{ ticket.priority|priority_badge }}">{{ ticket.get_priority_display }}</span></td>
+                            <td>{{ ticket.created_by.username }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-muted">You have no assigned tickets.</p>
+    {% endif %}
+{% endif %}
+
+<h3>{% if is_employee %}Recent Tickets{% else %}My Tickets{% endif %}</h3>
+{% if tickets %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    {% if is_employee %}
+                        <th>Created By</th>
+                        <th>Assigned To</th>
+                    {% endif %}
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                    <tr>
+                        <td><a href="{% url 'ticket_detail' ticket.id %}">#{{ ticket.id }}</a></td>
+                        <td>{{ ticket.title }}</td>
+                        <td><span class="badge {{ ticket.status|status_badge }}">{{ ticket.get_status_display }}</span></td>
+                        <td><span class="badge {{ ticket.priority|priority_badge }}">{{ ticket.get_priority_display }}</span></td>
+                        {% if is_employee %}
+                            <td>{{ ticket.created_by.username }}</td>
+                            <td>{{ ticket.assigned_to.username|default:"Unassigned" }}</td>
+                        {% endif %}
+                        <td>{{ ticket.created_at|date:"M d, Y" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <a href="{% url 'ticket_list' %}" class="btn btn-outline-primary">View All Tickets</a>
+{% else %}
+    <p class="text-muted">No tickets found. <a href="{% url 'ticket_create' %}">Create your first ticket</a>.</p>
+{% endif %}
+{% endblock %}
