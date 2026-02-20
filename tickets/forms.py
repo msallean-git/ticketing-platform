@@ -56,9 +56,10 @@ class TicketUpdateForm(forms.ModelForm):
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
-        fields = ('body',)
+        fields = ('body', 'is_internal')
 
     def __init__(self, *args, **kwargs):
+        is_employee = kwargs.pop('is_employee', False)
         super().__init__(*args, **kwargs)
         self.fields['body'].widget.attrs.update({
             'class': 'form-control',
@@ -66,3 +67,12 @@ class CommentForm(forms.ModelForm):
             'placeholder': 'Add a comment...'
         })
         self.fields['body'].label = ''
+
+        # Only show internal checkbox to employees
+        if is_employee:
+            self.fields['is_internal'].widget.attrs.update({'class': 'form-check-input'})
+            self.fields['is_internal'].label = 'Internal comment (visible to employees only)'
+        else:
+            # Hide the field for regular users
+            self.fields['is_internal'].widget = forms.HiddenInput()
+            self.fields['is_internal'].initial = False

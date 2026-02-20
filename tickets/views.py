@@ -140,25 +140,34 @@ def ticket_detail(request, pk):
                 messages.success(request, 'Ticket updated successfully!')
                 return redirect('ticket_detail', pk=pk)
         elif 'add_comment' in request.POST:
-            comment_form = CommentForm(request.POST)
+            comment_form = CommentForm(request.POST, is_employee=is_employee)
             if comment_form.is_valid():
                 comment = comment_form.save(commit=False)
                 comment.ticket = ticket
                 comment.author = user
+                # Ensure only employees can create internal comments
+                if not is_employee:
+                    comment.is_internal = False
                 comment.save()
                 messages.success(request, 'Comment added successfully!')
                 return redirect('ticket_detail', pk=pk)
 
     # Initialize forms for GET request
     update_form = TicketUpdateForm(instance=ticket) if is_employee else None
-    comment_form = CommentForm()
+    comment_form = CommentForm(is_employee=is_employee)
+
+    # Filter comments based on user role
+    if is_employee:
+        comments = ticket.comments.all()
+    else:
+        comments = ticket.comments.filter(is_internal=False)
 
     context = {
         'ticket': ticket,
         'is_employee': is_employee,
         'update_form': update_form,
         'comment_form': comment_form,
-        'comments': ticket.comments.all(),
+        'comments': comments,
     }
 
     return render(request, 'tickets/ticket_detail.html', context)

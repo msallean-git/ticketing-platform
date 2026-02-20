@@ -23,6 +23,11 @@ body {
     border-radius: 0.375rem;
 }
 
+.comment.internal-comment {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+}
+
 .table th {
     font-weight: 600;
 }
