@@ -10,6 +10,6 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('tickets/', views.ticket_list, name='ticket_list'),
     path('tickets/create/', views.ticket_create, name='ticket_create'),
-    path('tickets/<int:pk>/', views.ticket_detail, name='ticket_detail'),
-    path('tickets/<int:pk>/assign-self/', views.ticket_assign_self, name='ticket_assign_self'),
+    path('tickets/<uuid:pk>/', views.ticket_detail, name='ticket_detail'),
+    path('tickets/<uuid:pk>/assign-self/', views.ticket_assign_self, name='ticket_assign_self'),
 ]
