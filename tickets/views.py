@@ -46,6 +46,7 @@ def dashboard(request):
             'total': Ticket.objects.count(),
             'open': Ticket.objects.filter(status='open').count(),
             'in_progress': Ticket.objects.filter(status='in_progress').count(),
+            'waiting_on_asker': Ticket.objects.filter(status='waiting_on_asker').count(),
             'resolved': Ticket.objects.filter(status='resolved').count(),
         }
 
@@ -64,6 +65,7 @@ def dashboard(request):
             'total': tickets.count(),
             'open': tickets.filter(status='open').count(),
             'in_progress': tickets.filter(status='in_progress').count(),
+            'waiting_on_asker': tickets.filter(status='waiting_on_asker').count(),
             'resolved': tickets.filter(status='resolved').count(),
         }
 
@@ -159,6 +161,15 @@ def ticket_detail(request, pk):
                 if not is_employee:
                     comment.is_internal = False
                 comment.save()
+
+                # Automatically change status from "Waiting on Asker" to "In Progress"
+                # when the ticket creator adds a comment
+                if user == ticket.created_by and ticket.status == 'waiting_on_asker':
+                    old_status = ticket.status
+                    ticket.status = 'in_progress'
+                    ticket.save()
+                    logger.info(f'Ticket "{ticket.title}" status automatically changed from {old_status} to {ticket.status} after comment by asker')
+
                 comment_type = "internal" if comment.is_internal else "public"
                 logger.info(f'{comment_type.capitalize()} comment added to ticket "{ticket.title}" by {user.username}')
                 messages.success(request, 'Comment added successfully!')

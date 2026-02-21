@@ -8,6 +8,7 @@ def status_badge(status):
     badge_classes = {
         'open': 'bg-primary',
         'in_progress': 'bg-warning text-dark',
+        'waiting_on_asker': 'bg-dark',
         'resolved': 'bg-success',
         'closed': 'bg-secondary',
     }

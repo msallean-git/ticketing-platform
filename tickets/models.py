@@ -37,6 +37,7 @@ class Ticket(models.Model):
     STATUS_CHOICES = [
         ('open', 'Open'),
         ('in_progress', 'In Progress'),
+        ('waiting_on_asker', 'Waiting on Asker'),
         ('resolved', 'Resolved'),
         ('closed', 'Closed'),
     ]
