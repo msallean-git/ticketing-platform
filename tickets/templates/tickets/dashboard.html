@@ -8,45 +8,55 @@
 <p class="text-muted">Welcome back, {{ user.username }}!</p>
 
 <div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card text-white bg-primary">
-            <div class="card-body">
-                <h5 class="card-title">Total Tickets</h5>
-                <h2 class="mb-0">{{ stats.total }}</h2>
+    <div class="col-md">
+        <a href="{% url 'ticket_list' %}" class="text-decoration-none">
+            <div class="card text-white bg-primary card-clickable">
+                <div class="card-body">
+                    <h5 class="card-title">Total Tickets</h5>
+                    <h2 class="mb-0">{{ stats.total }}</h2>
+                </div>
             </div>
-        </div>
+        </a>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-info">
-            <div class="card-body">
-                <h5 class="card-title">Open</h5>
-                <h2 class="mb-0">{{ stats.open }}</h2>
+    <div class="col-md">
+        <a href="{% url 'ticket_list' %}?status=open" class="text-decoration-none">
+            <div class="card text-white bg-info card-clickable">
+                <div class="card-body">
+                    <h5 class="card-title">Open</h5>
+                    <h2 class="mb-0">{{ stats.open }}</h2>
+                </div>
             </div>
-        </div>
+        </a>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-warning">
-            <div class="card-body">
-                <h5 class="card-title">In Progress</h5>
-                <h2 class="mb-0">{{ stats.in_progress }}</h2>
+    <div class="col-md">
+        <a href="{% url 'ticket_list' %}?status=in_progress" class="text-decoration-none">
+            <div class="card text-white bg-warning card-clickable">
+                <div class="card-body">
+                    <h5 class="card-title">In Progress</h5>
+                    <h2 class="mb-0">{{ stats.in_progress }}</h2>
+                </div>
             </div>
-        </div>
+        </a>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-secondary">
-            <div class="card-body">
-                <h5 class="card-title">Waiting on Asker</h5>
-                <h2 class="mb-0">{{ stats.waiting_on_asker }}</h2>
+    <div class="col-md">
+        <a href="{% url 'ticket_list' %}?status=waiting_on_asker" class="text-decoration-none">
+            <div class="card text-white bg-secondary card-clickable">
+                <div class="card-body">
+                    <h5 class="card-title">Waiting on Asker</h5>
+                    <h2 class="mb-0">{{ stats.waiting_on_asker }}</h2>
+                </div>
             </div>
-        </div>
+        </a>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-success">
-            <div class="card-body">
-                <h5 class="card-title">Resolved</h5>
-                <h2 class="mb-0">{{ stats.resolved }}</h2>
+    <div class="col-md">
+        <a href="{% url 'ticket_list' %}?status=resolved" class="text-decoration-none">
+            <div class="card text-white bg-success card-clickable">
+                <div class="card-body">
+                    <h5 class="card-title">Resolved</h5>
+                    <h2 class="mb-0">{{ stats.resolved }}</h2>
+                </div>
             </div>
-        </div>
+        </a>
     </div>
 </div>
 
