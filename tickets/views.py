@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login
@@ -6,6 +7,8 @@ from django.db.models import Q, Count
 from .models import Ticket, Comment
 from .forms import RegistrationForm, TicketCreateForm, TicketUpdateForm, CommentForm
 from .decorators import employee_required
+
+logger = logging.getLogger(__name__)
 
 
 def home(request):
@@ -20,6 +23,7 @@ def register(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
+            logger.info(f'New user registered: {user.username} (Role: {user.profile.get_role_display()})')
             messages.success(request, f'Welcome {user.username}! Your account has been created.')
             return redirect('dashboard')
     else:
@@ -112,6 +116,7 @@ def ticket_create(request):
             ticket = form.save(commit=False)
             ticket.created_by = request.user
             ticket.save()
+            logger.info(f'Ticket created: "{ticket.title}" by {request.user.username} (Priority: {ticket.get_priority_display()})')
             messages.success(request, f'Ticket "{ticket.title}" created successfully!')
             return redirect('ticket_detail', pk=ticket.id)
     else:
@@ -136,7 +141,11 @@ def ticket_detail(request, pk):
         if 'update_ticket' in request.POST and is_employee:
             update_form = TicketUpdateForm(request.POST, instance=ticket)
             if update_form.is_valid():
+                old_status = ticket.status
+                old_priority = ticket.priority
+                old_assigned = ticket.assigned_to
                 update_form.save()
+                logger.info(f'Ticket updated: "{ticket.title}" by {user.username} (Status: {old_status}->{ticket.status}, Priority: {old_priority}->{ticket.priority}, Assigned: {old_assigned}->{ticket.assigned_to})')
                 messages.success(request, 'Ticket updated successfully!')
                 return redirect('ticket_detail', pk=pk)
         elif 'add_comment' in request.POST:
@@ -149,6 +158,8 @@ def ticket_detail(request, pk):
                 if not is_employee:
                     comment.is_internal = False
                 comment.save()
+                comment_type = "internal" if comment.is_internal else "public"
+                logger.info(f'{comment_type.capitalize()} comment added to ticket "{ticket.title}" by {user.username}')
                 messages.success(request, 'Comment added successfully!')
                 return redirect('ticket_detail', pk=pk)
 
@@ -180,5 +191,6 @@ def ticket_assign_self(request, pk):
     if ticket.status == 'open':
         ticket.status = 'in_progress'
     ticket.save()
+    logger.info(f'Ticket "{ticket.title}" assigned to {request.user.username}')
     messages.success(request, f'Ticket "{ticket.title}" assigned to you!')
     return redirect('ticket_detail', pk=pk)
