@@ -117,6 +117,14 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Media files (User uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# File attachment settings
+ALLOWED_ATTACHMENT_EXTENSIONS = ['.png', '.jpeg', '.jpg', '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.har', '.csv']
+MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024  # 5 MB
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 

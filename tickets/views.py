@@ -4,11 +4,25 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login
 from django.contrib import messages
 from django.db.models import Q, Count
-from .models import Ticket, Comment
+from .models import Ticket, Comment, Attachment
 from .forms import RegistrationForm, TicketCreateForm, TicketUpdateForm, CommentForm
 from .decorators import employee_required
 
 logger = logging.getLogger(__name__)
+
+
+def _save_attachments(files, uploaded_by, ticket=None, comment=None):
+    """Helper function to save multiple attachments."""
+    for file in files:
+        if file:
+            Attachment.objects.create(
+                ticket=ticket,
+                comment=comment,
+                file=file,
+                original_filename=file.name,
+                file_size=file.size,
+                uploaded_by=uploaded_by
+            )
 
 
 def home(request):
@@ -113,11 +127,16 @@ def ticket_list(request):
 @login_required
 def ticket_create(request):
     if request.method == 'POST':
-        form = TicketCreateForm(request.POST)
+        form = TicketCreateForm(request.POST, request.FILES)
         if form.is_valid():
             ticket = form.save(commit=False)
             ticket.created_by = request.user
             ticket.save()
+
+            # Save attachments
+            files = request.FILES.getlist('attachments')
+            _save_attachments(files, request.user, ticket=ticket)
+
             logger.info(f'Ticket created: "{ticket.title}" by {request.user.username} (Priority: {ticket.get_priority_display()})')
             messages.success(request, f'Ticket "{ticket.title}" created successfully!')
             return redirect('ticket_detail', pk=ticket.id)
@@ -152,7 +171,7 @@ def ticket_detail(request, pk):
                 messages.success(request, 'Ticket updated successfully!')
                 return redirect('ticket_detail', pk=pk)
         elif 'add_comment' in request.POST:
-            comment_form = CommentForm(request.POST, is_employee=is_employee)
+            comment_form = CommentForm(request.POST, request.FILES, is_employee=is_employee)
             if comment_form.is_valid():
                 comment = comment_form.save(commit=False)
                 comment.ticket = ticket
@@ -161,6 +180,10 @@ def ticket_detail(request, pk):
                 if not is_employee:
                     comment.is_internal = False
                 comment.save()
+
+                # Save attachments
+                files = request.FILES.getlist('attachments')
+                _save_attachments(files, user, comment=comment)
 
                 # Automatically change status from "Waiting on Asker" to "In Progress"
                 # when the ticket creator adds a comment
@@ -179,11 +202,14 @@ def ticket_detail(request, pk):
     update_form = TicketUpdateForm(instance=ticket) if is_employee else None
     comment_form = CommentForm(is_employee=is_employee)
 
-    # Filter comments based on user role
+    # Filter comments based on user role and prefetch attachments
     if is_employee:
-        comments = ticket.comments.all()
+        comments = ticket.comments.prefetch_related('attachments').all()
     else:
-        comments = ticket.comments.filter(is_internal=False)
+        comments = ticket.comments.filter(is_internal=False).prefetch_related('attachments')
+
+    # Get ticket attachments
+    ticket_attachments = ticket.attachments.all()
 
     context = {
         'ticket': ticket,
@@ -191,6 +217,7 @@ def ticket_detail(request, pk):
         'update_form': update_form,
         'comment_form': comment_form,
         'comments': comments,
+        'ticket_attachments': ticket_attachments,
     }
 
     return render(request, 'tickets/ticket_detail.html', context)

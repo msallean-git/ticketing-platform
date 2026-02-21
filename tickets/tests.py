@@ -1,8 +1,11 @@
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.urls import reverse
-from .models import Profile, Ticket, Comment
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.exceptions import ValidationError
+from .models import Profile, Ticket, Comment, Attachment
 from .forms import RegistrationForm, TicketCreateForm, TicketUpdateForm, CommentForm
+from .validators import validate_file_extension, validate_file_size
 
 
 class ProfileModelTest(TestCase):
@@ -546,3 +549,287 @@ class TemplateTagTest(TestCase):
         self.assertEqual(priority_badge('high'), 'bg-warning text-dark')
         self.assertEqual(priority_badge('urgent'), 'bg-danger')
         self.assertEqual(priority_badge('invalid'), 'bg-secondary')  # Default
+
+
+class ValidatorTest(TestCase):
+    """Test cases for file validators"""
+
+    def test_validate_file_extension_allowed(self):
+        """Test that allowed file extensions pass validation"""
+        allowed_files = [
+            SimpleUploadedFile("test.png", b"file_content"),
+            SimpleUploadedFile("test.jpeg", b"file_content"),
+            SimpleUploadedFile("test.jpg", b"file_content"),
+            SimpleUploadedFile("test.pdf", b"file_content"),
+            SimpleUploadedFile("test.docx", b"file_content"),
+            SimpleUploadedFile("test.xlsx", b"file_content"),
+            SimpleUploadedFile("test.csv", b"file_content"),
+            SimpleUploadedFile("test.har", b"file_content"),
+        ]
+        for file in allowed_files:
+            try:
+                validate_file_extension(file)
+            except ValidationError:
+                self.fail(f"validate_file_extension raised ValidationError for {file.name}")
+
+    def test_validate_file_extension_disallowed(self):
+        """Test that disallowed file extensions raise ValidationError"""
+        disallowed_files = [
+            SimpleUploadedFile("test.exe", b"file_content"),
+            SimpleUploadedFile("test.bat", b"file_content"),
+            SimpleUploadedFile("test.sh", b"file_content"),
+            SimpleUploadedFile("test.zip", b"file_content"),
+        ]
+        for file in disallowed_files:
+            with self.assertRaises(ValidationError):
+                validate_file_extension(file)
+
+    def test_validate_file_size_within_limit(self):
+        """Test that files within size limit pass validation"""
+        small_file = SimpleUploadedFile("test.pdf", b"x" * (1024 * 1024))  # 1 MB
+        try:
+            validate_file_size(small_file)
+        except ValidationError:
+            self.fail("validate_file_size raised ValidationError for file within limit")
+
+    def test_validate_file_size_exceeds_limit(self):
+        """Test that files exceeding size limit raise ValidationError"""
+        large_file = SimpleUploadedFile("test.pdf", b"x" * (6 * 1024 * 1024))  # 6 MB
+        with self.assertRaises(ValidationError):
+            validate_file_size(large_file)
+
+
+class AttachmentModelTest(TestCase):
+    """Test cases for the Attachment model"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.ticket = Ticket.objects.create(
+            title='Test Ticket',
+            description='Description',
+            created_by=self.user
+        )
+        self.comment = Comment.objects.create(
+            ticket=self.ticket,
+            author=self.user,
+            body='Test comment'
+        )
+
+    def test_attachment_creation_for_ticket(self):
+        """Test creating an attachment for a ticket"""
+        file = SimpleUploadedFile("test.pdf", b"file_content", content_type="application/pdf")
+        attachment = Attachment.objects.create(
+            ticket=self.ticket,
+            file=file,
+            original_filename="test.pdf",
+            file_size=file.size,
+            uploaded_by=self.user
+        )
+        self.assertEqual(attachment.ticket, self.ticket)
+        self.assertIsNone(attachment.comment)
+        self.assertEqual(attachment.original_filename, "test.pdf")
+
+    def test_attachment_creation_for_comment(self):
+        """Test creating an attachment for a comment"""
+        file = SimpleUploadedFile("image.png", b"file_content", content_type="image/png")
+        attachment = Attachment.objects.create(
+            comment=self.comment,
+            file=file,
+            original_filename="image.png",
+            file_size=file.size,
+            uploaded_by=self.user
+        )
+        self.assertEqual(attachment.comment, self.comment)
+        self.assertIsNone(attachment.ticket)
+
+    def test_attachment_file_extension_property(self):
+        """Test the file_extension property"""
+        file = SimpleUploadedFile("document.docx", b"content")
+        attachment = Attachment.objects.create(
+            ticket=self.ticket,
+            file=file,
+            original_filename="document.docx",
+            file_size=file.size,
+            uploaded_by=self.user
+        )
+        self.assertEqual(attachment.file_extension, '.docx')
+
+    def test_attachment_file_size_display_property(self):
+        """Test the file_size_display property"""
+        file = SimpleUploadedFile("test.pdf", b"x" * 1024)
+        attachment = Attachment.objects.create(
+            ticket=self.ticket,
+            file=file,
+            original_filename="test.pdf",
+            file_size=1024,
+            uploaded_by=self.user
+        )
+        self.assertEqual(attachment.file_size_display, "1.0 KB")
+
+    def test_attachment_is_image_property(self):
+        """Test the is_image property"""
+        image_file = SimpleUploadedFile("image.png", b"content")
+        pdf_file = SimpleUploadedFile("doc.pdf", b"content")
+
+        image_attachment = Attachment.objects.create(
+            ticket=self.ticket,
+            file=image_file,
+            original_filename="image.png",
+            file_size=image_file.size,
+            uploaded_by=self.user
+        )
+        pdf_attachment = Attachment.objects.create(
+            ticket=self.ticket,
+            file=pdf_file,
+            original_filename="doc.pdf",
+            file_size=pdf_file.size,
+            uploaded_by=self.user
+        )
+
+        self.assertTrue(image_attachment.is_image)
+        self.assertFalse(pdf_attachment.is_image)
+
+    def test_attachment_icon_class_property(self):
+        """Test the icon_class property for different file types"""
+        test_cases = [
+            ("image.png", "bi-file-image"),
+            ("document.pdf", "bi-file-pdf"),
+            ("report.docx", "bi-file-word"),
+            ("data.xlsx", "bi-file-excel"),
+            ("log.har", "bi-file-code"),
+        ]
+
+        for filename, expected_icon in test_cases:
+            file = SimpleUploadedFile(filename, b"content")
+            attachment = Attachment.objects.create(
+                ticket=self.ticket,
+                file=file,
+                original_filename=filename,
+                file_size=file.size,
+                uploaded_by=self.user
+            )
+            self.assertEqual(attachment.icon_class, expected_icon)
+
+    def test_attachment_cascade_delete_with_ticket(self):
+        """Test that attachments are deleted when ticket is deleted"""
+        file = SimpleUploadedFile("test.pdf", b"content")
+        Attachment.objects.create(
+            ticket=self.ticket,
+            file=file,
+            original_filename="test.pdf",
+            file_size=file.size,
+            uploaded_by=self.user
+        )
+        self.assertEqual(Attachment.objects.count(), 1)
+
+        self.ticket.delete()
+        self.assertEqual(Attachment.objects.count(), 0)
+
+    def test_attachment_cascade_delete_with_comment(self):
+        """Test that attachments are deleted when comment is deleted"""
+        file = SimpleUploadedFile("test.pdf", b"content")
+        Attachment.objects.create(
+            comment=self.comment,
+            file=file,
+            original_filename="test.pdf",
+            file_size=file.size,
+            uploaded_by=self.user
+        )
+        self.assertEqual(Attachment.objects.count(), 1)
+
+        self.comment.delete()
+        self.assertEqual(Attachment.objects.count(), 0)
+
+
+class TicketCreateAttachmentTest(TestCase):
+    """Test cases for ticket creation with attachments"""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.client.login(username='testuser', password='testpass123')
+
+    def test_create_ticket_with_attachments(self):
+        """Test creating a ticket with file attachments"""
+        file1 = SimpleUploadedFile("test1.pdf", b"pdf_content", content_type="application/pdf")
+        file2 = SimpleUploadedFile("test2.png", b"png_content", content_type="image/png")
+
+        response = self.client.post(reverse('ticket_create'), {
+            'title': 'Ticket with Attachments',
+            'description': 'Test description',
+            'priority': 'high',
+            'attachments': [file1, file2]
+        })
+
+        self.assertEqual(response.status_code, 302)
+        ticket = Ticket.objects.get(title='Ticket with Attachments')
+        self.assertEqual(ticket.attachments.count(), 2)
+
+    def test_create_ticket_without_attachments(self):
+        """Test creating a ticket without attachments"""
+        response = self.client.post(reverse('ticket_create'), {
+            'title': 'Ticket without Attachments',
+            'description': 'Test description',
+            'priority': 'medium'
+        })
+
+        self.assertEqual(response.status_code, 302)
+        ticket = Ticket.objects.get(title='Ticket without Attachments')
+        self.assertEqual(ticket.attachments.count(), 0)
+
+
+class CommentAttachmentTest(TestCase):
+    """Test cases for comment attachments"""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.ticket = Ticket.objects.create(
+            title='Test Ticket',
+            description='Description',
+            created_by=self.user
+        )
+        self.client.login(username='testuser', password='testpass123')
+
+    def test_add_comment_with_attachments(self):
+        """Test adding a comment with file attachments"""
+        file = SimpleUploadedFile("attachment.pdf", b"content", content_type="application/pdf")
+
+        response = self.client.post(
+            reverse('ticket_detail', kwargs={'pk': self.ticket.id}),
+            {
+                'add_comment': '',
+                'body': 'Comment with attachment',
+                'attachments': [file]
+            }
+        )
+
+        self.assertEqual(response.status_code, 302)
+        comment = Comment.objects.first()
+        self.assertIsNotNone(comment)
+        self.assertEqual(comment.attachments.count(), 1)
+        self.assertEqual(comment.attachments.first().original_filename, "attachment.pdf")
+
+    def test_add_comment_without_attachments(self):
+        """Test adding a comment without attachments"""
+        response = self.client.post(
+            reverse('ticket_detail', kwargs={'pk': self.ticket.id}),
+            {
+                'add_comment': '',
+                'body': 'Comment without attachment'
+            }
+        )
+
+        self.assertEqual(response.status_code, 302)
+        comment = Comment.objects.first()
+        self.assertIsNotNone(comment)
+        self.assertEqual(comment.attachments.count(), 0)

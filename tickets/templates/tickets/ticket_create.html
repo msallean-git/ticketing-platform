@@ -8,7 +8,7 @@
         <div class="card">
             <div class="card-body">
                 <h2 class="card-title mb-4">Create New Ticket</h2>
-                <form method="post">
+                <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
 
                     <div class="mb-3">
@@ -33,6 +33,15 @@
                         {% if form.priority.errors %}
                             <div class="text-danger small">{{ form.priority.errors }}</div>
                         {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.attachments.id_for_label }}" class="form-label">Attachments (optional)</label>
+                        {{ form.attachments }}
+                        {% if form.attachments.errors %}
+                            <div class="text-danger small">{{ form.attachments.errors }}</div>
+                        {% endif %}
+                        <div class="form-text">Allowed types: .png, .jpeg, .jpg, .pdf, .docx, .doc, .xlsx, .xls, .har, .csv (Max 5 MB per file)</div>
                     </div>
 
                     <div class="d-flex gap-2">

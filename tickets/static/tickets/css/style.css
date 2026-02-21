@@ -59,3 +59,47 @@ footer {
     border: none;
     cursor: pointer;
 }
+
+/* Attachment styles */
+.attachments-list,
+.comment-attachments {
+    margin-top: 0.5rem;
+}
+
+.attachment-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    margin-bottom: 0.25rem;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s ease;
+}
+
+.attachment-item:hover {
+    background-color: #e9ecef;
+}
+
+.attachment-link {
+    text-decoration: none;
+    color: #0d6efd;
+    flex-grow: 1;
+}
+
+.attachment-link:hover {
+    text-decoration: underline;
+}
+
+.attachment-item i {
+    font-size: 1.2rem;
+    color: #6c757d;
+}
+
+.comment-attachments .attachment-item {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+}
+
+.comment-attachments .attachment-item:hover {
+    background-color: #f8f9fa;
+}

@@ -1,7 +1,27 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.conf import settings
 from .models import Ticket, Comment, Profile
+from .validators import validate_file_extension, validate_file_size
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = [single_file_clean(data, initial)]
+        return result
 
 
 class RegistrationForm(UserCreationForm):
@@ -28,6 +48,8 @@ class RegistrationForm(UserCreationForm):
 
 
 class TicketCreateForm(forms.ModelForm):
+    attachments = MultipleFileField(required=False, validators=[validate_file_extension, validate_file_size])
+
     class Meta:
         model = Ticket
         fields = ('title', 'description', 'priority')
@@ -35,8 +57,15 @@ class TicketCreateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field_name in self.fields:
-            self.fields[field_name].widget.attrs.update({'class': 'form-control'})
+            if field_name != 'attachments':
+                self.fields[field_name].widget.attrs.update({'class': 'form-control'})
         self.fields['description'].widget.attrs.update({'rows': 5})
+        # Set accept attribute for client-side filtering
+        accept = ','.join(settings.ALLOWED_ATTACHMENT_EXTENSIONS)
+        self.fields['attachments'].widget.attrs.update({
+            'class': 'form-control',
+            'accept': accept
+        })
 
 
 class TicketUpdateForm(forms.ModelForm):
@@ -54,6 +83,8 @@ class TicketUpdateForm(forms.ModelForm):
 
 
 class CommentForm(forms.ModelForm):
+    attachments = MultipleFileField(required=False, validators=[validate_file_extension, validate_file_size])
+
     class Meta:
         model = Comment
         fields = ('body', 'is_internal')
@@ -67,6 +98,13 @@ class CommentForm(forms.ModelForm):
             'placeholder': 'Add a comment...'
         })
         self.fields['body'].label = ''
+
+        # Set accept attribute for client-side filtering
+        accept = ','.join(settings.ALLOWED_ATTACHMENT_EXTENSIONS)
+        self.fields['attachments'].widget.attrs.update({
+            'class': 'form-control',
+            'accept': accept
+        })
 
         # Only show internal checkbox to employees
         if is_employee:
