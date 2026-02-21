@@ -144,7 +144,8 @@ def ticket_detail(request, pk):
                 old_status = ticket.status
                 old_priority = ticket.priority
                 old_assigned = ticket.assigned_to
-                update_form.save()
+                updated_ticket = update_form.save()
+                ticket.refresh_from_db()
                 logger.info(f'Ticket updated: "{ticket.title}" by {user.username} (Status: {old_status}->{ticket.status}, Priority: {old_priority}->{ticket.priority}, Assigned: {old_assigned}->{ticket.assigned_to})')
                 messages.success(request, 'Ticket updated successfully!')
                 return redirect('ticket_detail', pk=pk)
