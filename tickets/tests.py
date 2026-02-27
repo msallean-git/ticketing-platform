@@ -1,4 +1,5 @@
 from pathlib import Path
+from io import StringIO
 from django.test import TestCase, Client, override_settings
 from django.contrib.auth.models import User
 from django.urls import reverse
@@ -6,6 +7,7 @@ from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
 from django.core import mail
+from django.core.management import call_command
 from .models import Profile, Ticket, Comment, Attachment
 from .forms import RegistrationForm, TicketCreateForm, TicketUpdateForm, CommentForm
 from .validators import validate_file_extension, validate_file_size
@@ -1166,3 +1168,12 @@ class EmailNotificationTest(TestCase):
             {'add_comment': '', 'body': 'Update for creator with no email.'}
         )
         self.assertEqual(len(mail.outbox), 0)
+
+
+class MigrationConsistencyTest(TestCase):
+    """Ensure all model changes have a corresponding migration."""
+
+    def test_no_missing_migrations(self):
+        """Fail if any model changes have not been captured in a migration."""
+        out = StringIO()
+        call_command('makemigrations', '--check', '--dry-run', stdout=out, stderr=out)
