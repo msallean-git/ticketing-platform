@@ -155,7 +155,10 @@
                 </div>
                 <div class="card-body">
                     {% if not ticket.assigned_to %}
-                        <a href="{% url 'ticket_assign_self' ticket.id %}" class="btn btn-success w-100 mb-3">Assign to Me</a>
+                        <form method="post" action="{% url 'ticket_assign_self' ticket.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success w-100 mb-3">Assign to Me</button>
+                        </form>
                     {% endif %}
 
                     <form method="post">

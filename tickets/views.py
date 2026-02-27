@@ -1,10 +1,12 @@
 import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.contrib.auth import login
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q, Count
+from django_ratelimit.decorators import ratelimit
 from .models import Ticket, Comment, Attachment
 from .forms import RegistrationForm, TicketCreateForm, TicketUpdateForm, CommentForm
 from .decorators import employee_required
@@ -32,7 +34,10 @@ def home(request):
     return render(request, 'home.html')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def register(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
     if request.method == 'POST':
         form = RegistrationForm(request.POST)
         if form.is_valid():
@@ -230,6 +235,7 @@ def ticket_detail(request, pk):
 
 
 @employee_required
+@require_POST
 def ticket_assign_self(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
     ticket.assigned_to = request.user

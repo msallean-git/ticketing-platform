@@ -1,6 +1,8 @@
-from django.test import TestCase, Client
+from pathlib import Path
+from django.test import TestCase, Client, override_settings
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
 from .models import Profile, Ticket, Comment, Attachment
@@ -164,6 +166,7 @@ class RegistrationViewTest(TestCase):
     """Test cases for user registration"""
 
     def setUp(self):
+        cache.clear()
         self.client = Client()
 
     def test_registration_page_loads(self):
@@ -349,7 +352,7 @@ class TicketViewTest(TestCase):
         )
 
         self.client.login(username='employee', password='testpass123')
-        response = self.client.get(reverse('ticket_assign_self', kwargs={'pk': ticket.id}))
+        response = self.client.post(reverse('ticket_assign_self', kwargs={'pk': ticket.id}))
 
         ticket.refresh_from_db()
         self.assertEqual(ticket.assigned_to, self.employee)
@@ -879,6 +882,7 @@ class EmailUniquenessTest(TestCase):
     """Test cases ensuring email uniqueness is enforced at registration"""
 
     def setUp(self):
+        cache.clear()
         self.client = Client()
         User.objects.create_user(
             username='existinguser',
@@ -934,6 +938,7 @@ class RoleAssignmentSecurityTest(TestCase):
     """Test cases ensuring role assignment is restricted to admins only"""
 
     def setUp(self):
+        cache.clear()
         self.client = Client()
 
     def test_registration_form_has_no_role_field(self):
@@ -986,3 +991,96 @@ class RoleAssignmentSecurityTest(TestCase):
         self.assertEqual(response.status_code, 302)  # Redirected, not granted access
         ticket.refresh_from_db()
         self.assertIsNone(ticket.assigned_to)  # Ticket remains unassigned
+
+
+class SecurityTest(TestCase):
+    """Security hardening tests"""
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123',
+            email='testuser@example.com'
+        )
+        self.employee = User.objects.create_user(
+            username='employee',
+            password='testpass123'
+        )
+        self.employee.profile.role = 'employee'
+        self.employee.profile.save()
+        self.ticket = Ticket.objects.create(
+            title='Test Ticket',
+            description='Test',
+            created_by=self.user
+        )
+
+    def test_secret_key_not_insecure_default(self):
+        """Test that SECRET_KEY is not the Django-insecure placeholder"""
+        from django.conf import settings
+        self.assertFalse(settings.SECRET_KEY.startswith('django-insecure-'))
+
+    def test_register_rate_limit(self):
+        """Test that register endpoint returns 429 after 5 requests per minute"""
+        for i in range(5):
+            self.client.post(reverse('register'), {
+                'username': f'ratelimituser{i}',
+                'email': f'ratelimituser{i}@example.com',
+                'password1': 'x',
+                'password2': 'y',
+            })
+        response = self.client.post(reverse('register'), {
+            'username': 'ratelimituser5',
+            'email': 'ratelimituser5@example.com',
+            'password1': 'x',
+            'password2': 'y',
+        })
+        self.assertEqual(response.status_code, 429)
+
+    def test_login_rate_limit(self):
+        """Test that login endpoint returns 429 after 5 requests per minute"""
+        for i in range(5):
+            self.client.post(reverse('login'), {
+                'username': 'wronguser',
+                'password': 'wrongpass',
+            })
+        response = self.client.post(reverse('login'), {
+            'username': 'wronguser',
+            'password': 'wrongpass',
+        })
+        self.assertEqual(response.status_code, 429)
+
+    def test_ticket_assign_self_rejects_get(self):
+        """Test that ticket_assign_self returns 405 for GET requests"""
+        self.client.login(username='employee', password='testpass123')
+        response = self.client.get(
+            reverse('ticket_assign_self', kwargs={'pk': self.ticket.id})
+        )
+        self.assertEqual(response.status_code, 405)
+
+    def test_ticket_assign_self_accepts_post(self):
+        """Test that ticket_assign_self works via POST"""
+        self.client.login(username='employee', password='testpass123')
+        response = self.client.post(
+            reverse('ticket_assign_self', kwargs={'pk': self.ticket.id})
+        )
+        self.assertEqual(response.status_code, 302)
+        self.ticket.refresh_from_db()
+        self.assertEqual(self.ticket.assigned_to, self.employee)
+
+    def test_authenticated_user_redirected_from_register(self):
+        """Test that an already-authenticated user is redirected away from register"""
+        self.client.login(username='testuser', password='testpass123')
+        response = self.client.get(reverse('register'))
+        self.assertRedirects(response, reverse('dashboard'))
+
+    def test_production_security_settings_block_exists(self):
+        """Test that settings.py contains the production security settings block"""
+        import ticketing_platform.settings as settings_module
+        settings_path = Path(settings_module.__file__)
+        content = settings_path.read_text()
+        self.assertIn('if not DEBUG:', content)
+        self.assertIn('SECURE_SSL_REDIRECT = True', content)
+        self.assertIn('SESSION_COOKIE_SECURE = True', content)
+        self.assertIn('CSRF_COOKIE_SECURE = True', content)
+        self.assertIn('SECURE_HSTS_SECONDS', content)

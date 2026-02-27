@@ -82,7 +82,10 @@
                             <td>{{ ticket.created_by.username }}</td>
                             <td>{{ ticket.created_at|date:"M d, Y" }}</td>
                             <td>
-                                <a href="{% url 'ticket_assign_self' ticket.id %}" class="btn btn-sm btn-primary">Assign to Me</a>
+                                <form method="post" action="{% url 'ticket_assign_self' ticket.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-primary">Assign to Me</button>
+                                </form>
                             </td>
                         </tr>
                     {% endfor %}
