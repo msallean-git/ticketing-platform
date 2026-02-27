@@ -82,7 +82,7 @@ class TicketUpdateForm(forms.ModelForm):
         for field_name in self.fields:
             self.fields[field_name].widget.attrs.update({'class': 'form-select'})
         # Only show employees in assigned_to dropdown
-        self.fields['assigned_to'].queryset = User.objects.filter(profile__role='employee')
+        self.fields['assigned_to'].queryset = User.objects.filter(profile__role='employee').select_related('profile')
         self.fields['assigned_to'].required = False
 
 

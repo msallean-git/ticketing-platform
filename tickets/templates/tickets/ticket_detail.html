@@ -28,7 +28,7 @@
 
                 {% if ticket_attachments %}
                 <hr>
-                <h6 class="mb-3">Attachments ({{ ticket_attachments.count }})</h6>
+                <h6 class="mb-3">Attachments ({{ ticket_attachments|length }})</h6>
                 <div class="attachments-list">
                     {% for attachment in ticket_attachments %}
                     <div class="attachment-item">
@@ -46,7 +46,7 @@
 
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Comments ({{ comments.count }})</h5>
+                <h5 class="mb-0">Comments ({{ comments|length }})</h5>
             </div>
             <div class="card-body">
                 {% if comments %}

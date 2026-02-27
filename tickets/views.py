@@ -58,17 +58,17 @@ def dashboard(request):
 
     if is_employee:
         # Employee dashboard: all tickets + unassigned
-        tickets = Ticket.objects.all()[:10]
-        unassigned_tickets = Ticket.objects.filter(assigned_to__isnull=True)[:5]
-        my_assigned = Ticket.objects.filter(assigned_to=user)[:5]
+        tickets = Ticket.objects.select_related('created_by', 'assigned_to').all()[:10]
+        unassigned_tickets = Ticket.objects.select_related('created_by').filter(assigned_to__isnull=True)[:5]
+        my_assigned = Ticket.objects.select_related('created_by').filter(assigned_to=user)[:5]
 
-        stats = {
-            'total': Ticket.objects.count(),
-            'open': Ticket.objects.filter(status='open').count(),
-            'in_progress': Ticket.objects.filter(status='in_progress').count(),
-            'waiting_on_asker': Ticket.objects.filter(status='waiting_on_asker').count(),
-            'resolved': Ticket.objects.filter(status='resolved').count(),
-        }
+        stats = Ticket.objects.aggregate(
+            total=Count('id'),
+            open=Count('id', filter=Q(status='open')),
+            in_progress=Count('id', filter=Q(status='in_progress')),
+            waiting_on_asker=Count('id', filter=Q(status='waiting_on_asker')),
+            resolved=Count('id', filter=Q(status='resolved')),
+        )
 
         context = {
             'is_employee': True,
@@ -81,13 +81,13 @@ def dashboard(request):
         # Regular user dashboard: own tickets
         tickets = Ticket.objects.filter(created_by=user)
 
-        stats = {
-            'total': tickets.count(),
-            'open': tickets.filter(status='open').count(),
-            'in_progress': tickets.filter(status='in_progress').count(),
-            'waiting_on_asker': tickets.filter(status='waiting_on_asker').count(),
-            'resolved': tickets.filter(status='resolved').count(),
-        }
+        stats = tickets.aggregate(
+            total=Count('id'),
+            open=Count('id', filter=Q(status='open')),
+            in_progress=Count('id', filter=Q(status='in_progress')),
+            waiting_on_asker=Count('id', filter=Q(status='waiting_on_asker')),
+            resolved=Count('id', filter=Q(status='resolved')),
+        )
 
         context = {
             'is_employee': False,
@@ -105,9 +105,9 @@ def ticket_list(request):
 
     # Base queryset
     if is_employee:
-        tickets = Ticket.objects.all()
+        tickets = Ticket.objects.select_related('created_by', 'assigned_to').all()
     else:
-        tickets = Ticket.objects.filter(created_by=user)
+        tickets = Ticket.objects.select_related('created_by', 'assigned_to').filter(created_by=user)
 
     # Filtering
     status_filter = request.GET.get('status')
@@ -215,9 +215,9 @@ def ticket_detail(request, pk):
 
     # Filter comments based on user role and prefetch attachments
     if is_employee:
-        comments = ticket.comments.prefetch_related('attachments').all()
+        comments = ticket.comments.select_related('author').prefetch_related('attachments')
     else:
-        comments = ticket.comments.filter(is_internal=False).prefetch_related('attachments')
+        comments = ticket.comments.select_related('author').prefetch_related('attachments').filter(is_internal=False)
 
     # Get ticket attachments
     ticket_attachments = ticket.attachments.all()

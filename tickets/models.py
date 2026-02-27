@@ -54,8 +54,8 @@ class Ticket(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=200)
     description = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open', db_index=True)
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium', db_index=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_tickets')
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tickets')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -63,6 +63,10 @@ class Ticket(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['priority', 'created_at']),
+        ]
 
     def __str__(self):
         return self.title
@@ -72,7 +76,7 @@ class Comment(models.Model):
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='comments')
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     body = models.TextField()
-    is_internal = models.BooleanField(default=False)
+    is_internal = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

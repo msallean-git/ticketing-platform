@@ -167,6 +167,12 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
+        'debug_console': {
+            'level': 'DEBUG',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
         'file': {
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
@@ -211,6 +217,11 @@ LOGGING = {
         'tickets': {
             'handlers': ['console', 'file'],
             'level': 'INFO',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['debug_console'],
+            'level': 'DEBUG',
             'propagate': False,
         },
     },
