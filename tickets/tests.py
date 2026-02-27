@@ -179,7 +179,6 @@ class RegistrationViewTest(TestCase):
             'email': 'newuser@example.com',
             'password1': 'complex_pass123',
             'password2': 'complex_pass123',
-            'role': 'user'
         })
         self.assertEqual(response.status_code, 302)  # Redirect after success
         self.assertTrue(User.objects.filter(username='newuser').exists())
@@ -195,7 +194,6 @@ class RegistrationViewTest(TestCase):
             'email': 'newuser@example.com',
             'password1': 'complex_pass123',
             'password2': 'different_pass',
-            'role': 'user'
         })
         self.assertEqual(response.status_code, 200)  # Stays on page
         self.assertFalse(User.objects.filter(username='newuser').exists())
@@ -501,7 +499,6 @@ class FormTest(TestCase):
             'email': 'newuser@example.com',
             'password1': 'complex_pass123',
             'password2': 'complex_pass123',
-            'role': 'user'
         }
         form = RegistrationForm(data=form_data)
         self.assertTrue(form.is_valid())
@@ -833,3 +830,61 @@ class CommentAttachmentTest(TestCase):
         comment = Comment.objects.first()
         self.assertIsNotNone(comment)
         self.assertEqual(comment.attachments.count(), 0)
+
+
+class RoleAssignmentSecurityTest(TestCase):
+    """Test cases ensuring role assignment is restricted to admins only"""
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_registration_form_has_no_role_field(self):
+        """Test that the registration form does not expose a role field"""
+        form = RegistrationForm()
+        self.assertNotIn('role', form.fields)
+
+    def test_registration_defaults_to_user_role(self):
+        """Test that newly registered users always get the 'user' role"""
+        self.client.post(reverse('register'), {
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password1': 'complex_pass123',
+            'password2': 'complex_pass123',
+        })
+        user = User.objects.get(username='newuser')
+        self.assertEqual(user.profile.role, 'user')
+
+    def test_cannot_self_register_as_employee(self):
+        """Test that submitting employee role via POST is ignored"""
+        self.client.post(reverse('register'), {
+            'username': 'sneakyuser',
+            'email': 'sneaky@example.com',
+            'password1': 'complex_pass123',
+            'password2': 'complex_pass123',
+            'role': 'employee',  # Attempting to self-assign employee role
+        })
+        user = User.objects.get(username='sneakyuser')
+        self.assertEqual(user.profile.role, 'user')
+        self.assertFalse(user.profile.is_employee)
+
+    def test_new_user_cannot_access_employee_views(self):
+        """Test that a newly registered user is denied access to employee-only views"""
+        self.client.post(reverse('register'), {
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password1': 'complex_pass123',
+            'password2': 'complex_pass123',
+        })
+        self.client.login(username='newuser', password='complex_pass123')
+
+        # Create a ticket to try to assign
+        owner = User.objects.create_user(username='owner', password='pass')
+        ticket = Ticket.objects.create(
+            title='Test Ticket',
+            description='Test',
+            created_by=owner
+        )
+        response = self.client.get(reverse('ticket_assign_self', kwargs={'pk': ticket.id}))
+        self.assertEqual(response.status_code, 302)  # Redirected, not granted access
+        ticket.refresh_from_db()
+        self.assertIsNone(ticket.assigned_to)  # Ticket remains unassigned
