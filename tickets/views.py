@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db.models import Q, Count
 from .models import Ticket, Comment, Attachment
 from .forms import RegistrationForm, TicketCreateForm, TicketUpdateForm, CommentForm
@@ -112,8 +113,13 @@ def ticket_list(request):
     if priority_filter:
         tickets = tickets.filter(priority=priority_filter)
 
+    # Pagination
+    paginator = Paginator(tickets, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
     context = {
-        'tickets': tickets,
+        'tickets': page_obj,
+        'page_obj': page_obj,
         'is_employee': is_employee,
         'status_filter': status_filter,
         'priority_filter': priority_filter,

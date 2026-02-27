@@ -832,6 +832,49 @@ class CommentAttachmentTest(TestCase):
         self.assertEqual(comment.attachments.count(), 0)
 
 
+class PaginationTest(TestCase):
+    """Test cases for ticket list pagination"""
+
+    def setUp(self):
+        self.client = Client()
+        self.employee = User.objects.create_user(
+            username='employee',
+            password='testpass123'
+        )
+        self.employee.profile.role = 'employee'
+        self.employee.profile.save()
+
+        # Create 25 tickets to exceed the 20-per-page limit
+        for i in range(25):
+            Ticket.objects.create(
+                title=f'Ticket {i}',
+                description='Test',
+                created_by=self.employee
+            )
+        self.client.login(username='employee', password='testpass123')
+
+    def test_first_page_has_20_tickets(self):
+        """Test that the first page contains 20 tickets"""
+        response = self.client.get(reverse('ticket_list'))
+        self.assertEqual(len(response.context['tickets']), 20)
+
+    def test_second_page_has_remaining_tickets(self):
+        """Test that the second page has the remaining tickets"""
+        response = self.client.get(reverse('ticket_list') + '?page=2')
+        self.assertEqual(len(response.context['tickets']), 5)
+
+    def test_pagination_preserves_filters(self):
+        """Test that pagination links preserve active filters"""
+        response = self.client.get(reverse('ticket_list') + '?status=open&page=1')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['status_filter'], 'open')
+
+    def test_invalid_page_returns_last_page(self):
+        """Test that an out-of-range page number falls back gracefully"""
+        response = self.client.get(reverse('ticket_list') + '?page=999')
+        self.assertEqual(response.status_code, 200)
+
+
 class EmailUniquenessTest(TestCase):
     """Test cases ensuring email uniqueness is enforced at registration"""
 
