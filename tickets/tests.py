@@ -832,6 +832,61 @@ class CommentAttachmentTest(TestCase):
         self.assertEqual(comment.attachments.count(), 0)
 
 
+class EmailUniquenessTest(TestCase):
+    """Test cases ensuring email uniqueness is enforced at registration"""
+
+    def setUp(self):
+        self.client = Client()
+        User.objects.create_user(
+            username='existinguser',
+            email='taken@example.com',
+            password='testpass123'
+        )
+
+    def test_registration_rejects_duplicate_email(self):
+        """Test that registering with an already-used email fails"""
+        response = self.client.post(reverse('register'), {
+            'username': 'newuser',
+            'email': 'taken@example.com',
+            'password1': 'complex_pass123',
+            'password2': 'complex_pass123',
+        })
+        self.assertEqual(response.status_code, 200)  # Stays on page
+        self.assertFalse(User.objects.filter(username='newuser').exists())
+
+    def test_registration_rejects_duplicate_email_case_insensitive(self):
+        """Test that email uniqueness check is case-insensitive"""
+        response = self.client.post(reverse('register'), {
+            'username': 'newuser',
+            'email': 'TAKEN@EXAMPLE.COM',
+            'password1': 'complex_pass123',
+            'password2': 'complex_pass123',
+        })
+        self.assertEqual(response.status_code, 200)  # Stays on page
+        self.assertFalse(User.objects.filter(username='newuser').exists())
+
+    def test_registration_accepts_unique_email(self):
+        """Test that registering with a new email succeeds"""
+        response = self.client.post(reverse('register'), {
+            'username': 'newuser',
+            'email': 'unique@example.com',
+            'password1': 'complex_pass123',
+            'password2': 'complex_pass123',
+        })
+        self.assertEqual(response.status_code, 302)  # Redirects on success
+        self.assertTrue(User.objects.filter(username='newuser').exists())
+
+    def test_registration_form_shows_email_error(self):
+        """Test that the form displays an error message for duplicate email"""
+        response = self.client.post(reverse('register'), {
+            'username': 'newuser',
+            'email': 'taken@example.com',
+            'password1': 'complex_pass123',
+            'password2': 'complex_pass123',
+        })
+        self.assertContains(response, 'An account with this email address already exists.')
+
+
 class RoleAssignmentSecurityTest(TestCase):
     """Test cases ensuring role assignment is restricted to admins only"""
 
