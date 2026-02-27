@@ -10,6 +10,7 @@ from django_ratelimit.decorators import ratelimit
 from .models import Ticket, Comment, Attachment
 from .forms import RegistrationForm, TicketCreateForm, TicketUpdateForm, CommentForm
 from .decorators import employee_required
+from .emails import send_comment_notification
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +208,7 @@ def ticket_detail(request, pk):
                 comment_type = "internal" if comment.is_internal else "public"
                 logger.info(f'{comment_type.capitalize()} comment added to ticket "{ticket.title}" by {user.username}')
                 messages.success(request, 'Comment added successfully!')
+                send_comment_notification(comment, ticket)
                 return redirect('ticket_detail', pk=pk)
 
     # Initialize forms for GET request

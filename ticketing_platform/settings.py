@@ -132,6 +132,10 @@ MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024  # 5 MB
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Email settings
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@ticketdesk.local')
+
 # Auth settings
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'

@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
+from django.core import mail
 from .models import Profile, Ticket, Comment, Attachment
 from .forms import RegistrationForm, TicketCreateForm, TicketUpdateForm, CommentForm
 from .validators import validate_file_extension, validate_file_size
@@ -1084,3 +1085,84 @@ class SecurityTest(TestCase):
         self.assertIn('SESSION_COOKIE_SECURE = True', content)
         self.assertIn('CSRF_COOKIE_SECURE = True', content)
         self.assertIn('SECURE_HSTS_SECONDS', content)
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class EmailNotificationTest(TestCase):
+    """Test cases for email notifications on public comments"""
+
+    def setUp(self):
+        self.client = Client()
+        self.creator = User.objects.create_user(
+            username='creator',
+            password='testpass123',
+            email='creator@example.com'
+        )
+        self.employee = User.objects.create_user(
+            username='employee',
+            password='testpass123',
+            email='employee@example.com'
+        )
+        self.employee.profile.role = 'employee'
+        self.employee.profile.save()
+
+        self.ticket = Ticket.objects.create(
+            title='Test Ticket',
+            description='Description',
+            created_by=self.creator,
+            assigned_to=self.employee
+        )
+
+    def test_employee_public_comment_emails_ticket_creator(self):
+        """Employee adds a public comment — creator receives an email"""
+        self.client.login(username='employee', password='testpass123')
+        self.client.post(
+            reverse('ticket_detail', kwargs={'pk': self.ticket.id}),
+            {'add_comment': '', 'body': 'Here is an update for you.'}
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(self.creator.email, mail.outbox[0].to)
+        self.assertIn('Test Ticket', mail.outbox[0].subject)
+
+    def test_creator_comment_emails_assigned_employee(self):
+        """Ticket creator comments — assigned employee receives an email"""
+        self.client.login(username='creator', password='testpass123')
+        self.client.post(
+            reverse('ticket_detail', kwargs={'pk': self.ticket.id}),
+            {'add_comment': '', 'body': 'Any update on this?'}
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(self.employee.email, mail.outbox[0].to)
+
+    def test_internal_comment_sends_no_email(self):
+        """Internal comment never triggers an email"""
+        self.client.login(username='employee', password='testpass123')
+        self.client.post(
+            reverse('ticket_detail', kwargs={'pk': self.ticket.id}),
+            {'add_comment': '', 'body': 'Private note.', 'is_internal': True}
+        )
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_no_email_when_no_recipient(self):
+        """Creator comments on an unassigned ticket — no email sent"""
+        self.ticket.assigned_to = None
+        self.ticket.save()
+
+        self.client.login(username='creator', password='testpass123')
+        self.client.post(
+            reverse('ticket_detail', kwargs={'pk': self.ticket.id}),
+            {'add_comment': '', 'body': 'Is anyone looking at this?'}
+        )
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_no_email_when_recipient_has_no_email(self):
+        """Recipient exists but has no email address — no email sent"""
+        self.creator.email = ''
+        self.creator.save()
+
+        self.client.login(username='employee', password='testpass123')
+        self.client.post(
+            reverse('ticket_detail', kwargs={'pk': self.ticket.id}),
+            {'add_comment': '', 'body': 'Update for creator with no email.'}
+        )
+        self.assertEqual(len(mail.outbox), 0)
