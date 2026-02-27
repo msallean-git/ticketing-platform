@@ -35,7 +35,7 @@ py seed_data.py             # Seed DB (clears existing data first)
 | `tickets/tests.py` | All tests |
 | `seed_data.py` | 48 tickets, 24 comments, 6 users |
 | `.env` | Local environment config (not committed) |
-| `SECURITY_REPORT.md` | Security audit findings and fixes |
+| `reports/` | Markdown reports (e.g. security audits) |
 
 ## Security
 
