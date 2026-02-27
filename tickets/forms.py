@@ -26,11 +26,10 @@ class MultipleFileField(forms.FileField):
 
 class RegistrationForm(UserCreationForm):
     email = forms.EmailField(required=True)
-    role = forms.ChoiceField(choices=Profile.ROLE_CHOICES, initial='user')
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'password1', 'password2', 'role')
+        fields = ('username', 'email', 'password1', 'password2')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -42,8 +41,7 @@ class RegistrationForm(UserCreationForm):
         user.email = self.cleaned_data['email']
         if commit:
             user.save()
-            user.profile.role = self.cleaned_data['role']
-            user.profile.save()
+            # Role defaults to 'user'; only admins can assign employee role via admin panel
         return user
 
 
